@@ -6,7 +6,7 @@ set(XSIMDALGO_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # Dependencies
 # ============
 
-set(xsimd_REQUIRED_VERSION 13.2.0)
+set(xsimd_REQUIRED_VERSION 14.3.0)
 if(TARGET xsimd)
     set(xsimd_VERSION ${XSIMD_VERSION_MAJOR}.${XSIMD_VERSION_MINOR}.${XSIMD_VERSION_PATCH})
     if(${xsimd_VERSION} VERSION_LESS ${xsimd_REQUIRED_VERSION})
