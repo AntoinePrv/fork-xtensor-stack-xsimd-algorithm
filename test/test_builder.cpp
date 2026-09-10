@@ -9,19 +9,15 @@
  * The full license is in the file LICENSE, distributed with this software. *
  ****************************************************************************/
 
-#include "xsimd_algorithm/builder.hpp"
-
-#ifndef XSIMD_NO_SUPPORTED_ARCHITECTURE
-
-#include "doctest/doctest.h"
-
 #include <cstddef>
 #include <cstdint>
 
-#include "utils.hpp"
+#include <doctest/doctest.h>
+#include <xsimd_test_utils/utils.hpp>
 
-using namespace xsimd::test;
+#include "xsimd_algorithm/builder.hpp"
 
+/// Map unary test that turned int32 into half has many int64.
 TEST_CASE("map_unary int32 to int64")
 {
     using input_type = std::int32_t;
@@ -31,13 +27,13 @@ TEST_CASE("map_unary int32 to int64")
     static constexpr std::size_t input_size = 94;
     static constexpr std::size_t output_size = input_size * sizeof(input_type) / sizeof(output_type);
 
-    const auto input = make_arange<input_type>(input_size);
-    auto output = aligned_vector<output_type>(output_size);
+    const auto input = xsimd::test::make_arange<input_type>(input_size);
+    auto output = xsimd::test::aligned_vector<output_type>(output_size);
 
     const auto func = [](auto const& x)
     { return xsimd::widen(x + input_type { 1 })[0]; };
 
-    xsimd::builder::map_unary(as_span(input), as_span(output), func);
+    xsimd::builder::map_unary(xsimd::test::as_span(input), xsimd::test::as_span(output), func);
 
     static constexpr std::size_t in_batch_size = xsimd::batch<input_type>::size;
     static constexpr std::size_t out_batch_size = xsimd::batch<output_type>::size;
@@ -49,5 +45,3 @@ TEST_CASE("map_unary int32 to int64")
         CHECK(output[i] == static_cast<output_type>(input[in_index] + 1));
     }
 }
-
-#endif

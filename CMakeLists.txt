@@ -34,6 +34,8 @@ target_link_libraries(xsimd-algorithm INTERFACE xsimd)
 
 OPTION(BUILD_TESTS "xsimd-algorithm test suite" OFF)
 
+add_subdirectory(test-utils)
+
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
