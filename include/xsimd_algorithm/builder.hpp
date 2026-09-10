@@ -10,6 +10,7 @@
 #define XSIMD_ALGORITHM_BUILDER_HPP
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cassert>
 #include <cstddef>
@@ -88,13 +89,13 @@ namespace xsimd::builder
             return;
         }
 
-        alignas(Arch::alignment()) T input_buffer[input_batch::size] {};
-        alignas(Arch::alignment()) U output_buffer[output_batch::size];
+        alignas(Arch::alignment()) std::array<T, input_batch::size> input_buffer {};
+        alignas(Arch::alignment()) std::array<U, output_batch::size> output_buffer;
 
         const std::size_t in_count = static_cast<std::size_t>(end - begin);
-        std::memcpy(input_buffer, begin, in_count * sizeof(T));
-        func(input_batch::load_aligned(input_buffer)).store_aligned(output_buffer);
-        std::memcpy(out, output_buffer, in_count * sizeof(T));
+        std::memcpy(input_buffer.data(), begin, in_count * sizeof(T));
+        func(input_batch::load_aligned(input_buffer.data())).store_aligned(output_buffer.data());
+        std::memcpy(out, output_buffer.data(), in_count * sizeof(T));
     }
 
     template <typename T, typename A, bool aligned>
@@ -140,6 +141,12 @@ namespace xsimd::builder
         constexpr bool load_is_aligned = align.start_aligned || !align_output;
         constexpr bool store_is_aligned = align.start_aligned || align_output;
 
+        // Edges can be handled by recomputing a region overlapping the aligned body,
+        // which is cheaper than a round trip through a scratch buffer. This requires
+        // func to be free of side effects, and both sides to have the same lane count
+        // since shifting the batch boundary otherwise pairs lanes differently.
+        constexpr bool can_overlap = opts.pure && (input_batch::size == output_batch::size);
+
         assert(in.size() * sizeof(T) == out.size() * sizeof(U));
         assert(!are_aliased(in, out));
 
@@ -164,7 +171,16 @@ namespace xsimd::builder
             assert(head_bytes % sizeof(T) == 0);
             assert(head_bytes % sizeof(U) == 0);
 
-            map_unary_batch<Arch>(it, it + head_bytes / sizeof(T), ot, func);
+            if (can_overlap && (head_bytes != 0) && (in.size() >= input_batch::size))
+            {
+                // Recompute the head as a full batch, the body overwrites the excess.
+                const auto x = load_batch<T, Arch, false>(it);
+                store_batch<U, Arch, false>(func(x), ot);
+            }
+            else
+            {
+                map_unary_batch<Arch>(it, it + head_bytes / sizeof(T), ot, func);
+            }
             it += head_bytes / sizeof(T);
             ot += head_bytes / sizeof(U);
         }
@@ -172,7 +188,7 @@ namespace xsimd::builder
         // Unrolled loop processing multiple batches at a time
         while (static_cast<std::size_t>(iend - it) >= opts.unroll_factor * input_batch::size)
         {
-            input_batch x[opts.unroll_factor];
+            std::array<input_batch, opts.unroll_factor> x;
             for (std::size_t u = 0; u < opts.unroll_factor; ++u)
             {
                 x[u] = load_batch<T, Arch, load_is_aligned>(it + u * input_batch::size);
@@ -199,10 +215,7 @@ namespace xsimd::builder
         if constexpr (!align.end_aligned)
         {
             auto const oend = out.data() + out.size();
-            // Stepping back shifts the batch boundary, which pairs lanes differently
-            // than starting from the front unless both sides have the same lane count.
-            constexpr bool can_step_back = input_batch::size == output_batch::size;
-            if (can_step_back && it != iend && (in.size() >= input_batch::size)) [[likely]]
+            if (can_overlap && (it != iend) && (in.size() >= input_batch::size)) [[likely]]
             {
                 // Recompute overlapping data, this time starting from the end.
                 const auto x = load_batch<T, Arch, false>(iend - input_batch::size);
