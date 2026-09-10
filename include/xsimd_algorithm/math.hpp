@@ -38,6 +38,18 @@ namespace xsimd::algo
             in, out, [](auto x)
             { return abs(x); });
     }
+
+    template <
+        xsimd::builder::alignment align = {},
+        typename Arch = xsimd::default_arch,
+        typename T>
+    void exp(std::span<T const> in, std::span<T> out)
+    {
+        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::builder::map_unary<align, opts, Arch>(
+            in, out, [](auto x)
+            { return exp(x); });
+    }
 }
 
 #endif

@@ -94,6 +94,35 @@ namespace xsimd::test
             return make_arange<T, Alloc>(size, -static_cast<T>(size) / 2);
         }
     };
+
+    template <typename T>
+    struct exp_op : unary_op<exp_op<T>, T>
+    {
+        static constexpr auto name = "exp";
+
+        static T apply(T x)
+        {
+            return std::exp(x);
+        }
+
+        template <xsimd::builder::alignment aligned = {}>
+        static void apply_range_simd(std::span<T const> in, std::span<T> out)
+        {
+            xsimd::algo::exp<aligned>(in, out);
+        }
+
+        template <typename Alloc>
+        static std::vector<T, Alloc> make_input(std::size_t size)
+        {
+            // exp overflows past a small range, so wrap the values back into [-10, 10).
+            auto input = make_arange<T, Alloc>(size);
+            for (auto& x : input)
+            {
+                x = std::fmod(x, T { 20 }) - T { 10 };
+            }
+            return input;
+        }
+    };
 }
 
 #endif

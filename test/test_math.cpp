@@ -15,7 +15,7 @@
 
 namespace
 {
-    template <typename Op, typename Alloc, xsimd::builder::alignment_options aligned = {}>
+    template <typename Op, typename Alloc, xsimd::builder::alignment aligned = {}>
     void check_unary_math()
     {
         // Not a multiple of the batch size, to exercise the tail.
@@ -39,7 +39,9 @@ TEST_CASE_TEMPLATE(
     xsimd::test::sqrt_op<float>,
     xsimd::test::sqrt_op<double>,
     xsimd::test::abs_op<float>,
-    xsimd::test::abs_op<double>)
+    xsimd::test::abs_op<double>,
+    xsimd::test::exp_op<float>,
+    xsimd::test::exp_op<double>)
 {
     using value_type = typename Op::value_type;
     using aligned_allocator = typename xsimd::test::aligned_vector<value_type>::allocator_type;
