@@ -50,6 +50,7 @@ set(XSIMD_ALGORITHM_TESTS
     test_arange.cpp
     test_builder.cpp
     test_iterator.cpp
+    test_math.cpp
     test_reduce.cpp
     test_transform.cpp
 )

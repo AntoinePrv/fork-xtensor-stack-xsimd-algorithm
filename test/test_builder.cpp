@@ -17,35 +17,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <numeric>
-#include <span>
-#include <vector>
 
-namespace
-{
-    template <typename T>
-    using aligned_vector = std::vector<T, xsimd::aligned_allocator<T>>;
+#include "utils.hpp"
 
-    template <typename T, typename A>
-    std::span<T const> as_span(std::vector<T, A> const& v)
-    {
-        return std::span<T const> { v.data(), v.size() };
-    }
-
-    template <typename T, typename A>
-    std::span<T> as_span(std::vector<T, A>& v)
-    {
-        return std::span<T> { v.data(), v.size() };
-    }
-
-    template <typename T>
-    aligned_vector<T> make_arange(std::size_t size, T start = T { 0 })
-    {
-        aligned_vector<T> data(size);
-        std::iota(data.begin(), data.end(), start);
-        return data;
-    }
-}
+using namespace xsimd::test;
 
 TEST_CASE("map_unary int32 to int64")
 {
