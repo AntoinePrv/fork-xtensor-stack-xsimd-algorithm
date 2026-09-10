@@ -59,7 +59,7 @@ namespace xsimd::test
             return std::sqrt(x);
         }
 
-        template <xsimd::builder::alignment_options aligned = {}>
+        template <xsimd::builder::alignment aligned = {}>
         static void apply_range_simd(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::sqrt<aligned>(in, out);
@@ -82,7 +82,7 @@ namespace xsimd::test
             return std::abs(x);
         }
 
-        template <xsimd::builder::alignment_options aligned = {}>
+        template <xsimd::builder::alignment aligned = {}>
         static void apply_range_simd(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::abs<aligned>(in, out);

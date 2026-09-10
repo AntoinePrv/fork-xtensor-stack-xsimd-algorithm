@@ -16,23 +16,25 @@
 namespace xsimd::algo
 {
     template <
-        xsimd::builder::alignment_options aligned = {},
+        xsimd::builder::alignment align = {},
         typename Arch = xsimd::default_arch,
         typename T>
     void sqrt(std::span<T const> in, std::span<T> out)
     {
-        return xsimd::builder::map_unary<aligned, Arch>(
+        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::builder::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return sqrt(x); });
     }
 
     template <
-        xsimd::builder::alignment_options aligned = {},
+        xsimd::builder::alignment align = {},
         typename Arch = xsimd::default_arch,
         typename T>
     void abs(std::span<T const> in, std::span<T> out)
     {
-        return xsimd::builder::map_unary<aligned, Arch>(
+        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::builder::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return abs(x); });
     }
