@@ -22,10 +22,6 @@ endif()
 # Build
 # =====
 
-set(XSIMDALGO_HEADERS
-    ${XSIMDALGO_INCLUDE_DIR}/xsimd_algorithm/algorithms.hpp
-)
-
 add_library(xsimd-algorithm INTERFACE)
 
 target_include_directories(xsimd-algorithm INTERFACE

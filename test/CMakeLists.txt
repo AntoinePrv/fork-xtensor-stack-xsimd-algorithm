@@ -48,6 +48,7 @@ endif()
 set(XSIMD_ALGORITHM_TESTS
     main.cpp
     test_arange.cpp
+    test_builder.cpp
     test_iterator.cpp
     test_reduce.cpp
     test_transform.cpp
