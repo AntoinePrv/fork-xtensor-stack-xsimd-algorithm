@@ -11,7 +11,7 @@
 
 #include <doctest/doctest.h>
 
-#include <xsimd_test_utils/math_data.hpp>
+#include <xsimd_test_utils/map_unary_data.hpp>
 #include <xsimd_test_utils/utils.hpp>
 
 namespace

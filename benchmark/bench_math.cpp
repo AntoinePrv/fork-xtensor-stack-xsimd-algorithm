@@ -13,7 +13,7 @@
 #include <benchmark/benchmark.h>
 
 #include "bench_utils.hpp"
-#include "xsimd_test_utils/math_data.hpp"
+#include "xsimd_test_utils/map_unary_data.hpp"
 #include "xsimd_test_utils/utils.hpp"
 
 using xsimd::builder::alignment;
