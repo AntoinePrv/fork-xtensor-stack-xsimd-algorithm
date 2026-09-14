@@ -216,8 +216,8 @@ namespace xsimd::builder
     /// std::array<batch<U, Arch>, batch_arity<U, T>>, both spanning the same element count.
     /// When arity is one, a callback over plain batches is accepted as well.
     template <
-        alignment align = {},
-        unary_options opts = {},
+        alignment align = alignment{},
+        unary_options opts = unary_options{},
         typename Arch = xsimd::default_arch,
         typename T, typename U, typename Func>
     XSIMD_INLINE void map_unary(std::span<T const> in, std::span<U> out, Func&& func)

@@ -16,7 +16,7 @@
 namespace xsimd::algo
 {
     template <
-        xsimd::builder::alignment align = {},
+        xsimd::builder::alignment align = xsimd::builder::alignment{},
         typename Arch = xsimd::default_arch,
         typename T>
     void sqrt(std::span<T const> in, std::span<T> out)
@@ -28,7 +28,7 @@ namespace xsimd::algo
     }
 
     template <
-        xsimd::builder::alignment align = {},
+        xsimd::builder::alignment align = xsimd::builder::alignment{},
         typename Arch = xsimd::default_arch,
         typename T>
     void abs(std::span<T const> in, std::span<T> out)
@@ -40,7 +40,7 @@ namespace xsimd::algo
     }
 
     template <
-        xsimd::builder::alignment align = {},
+        xsimd::builder::alignment align = xsimd::builder::alignment{},
         typename Arch = xsimd::default_arch,
         typename T>
     void exp(std::span<T const> in, std::span<T> out)

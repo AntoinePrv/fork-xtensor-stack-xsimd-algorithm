@@ -40,7 +40,7 @@ namespace
             static_cast<std::int64_t>(state.iterations() * size * 2 * sizeof(input_t)));
     }
 
-    template <typename Op, typename Alloc, alignment aligned = {}>
+    template <typename Op, typename Alloc, alignment aligned = alignment{}>
     void bench_simd(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(
@@ -78,7 +78,7 @@ namespace
         using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t>::allocator_type;
 
         register_bench<Op>("scalar/aligned", bench_scalar<Op, aligned_alloc>);
-        register_bench<Op>("simd/aligned", bench_simd<Op, aligned_alloc, { .start_aligned = true }>);
+        register_bench<Op>("simd/aligned", bench_simd<Op, aligned_alloc, alignment { .start_aligned = true }>);
         register_bench<Op>("simd/unaligned", bench_simd<Op, unaligned_alloc>);
     }
 

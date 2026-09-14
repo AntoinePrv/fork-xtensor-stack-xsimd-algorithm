@@ -41,7 +41,7 @@ namespace xsimd::test
             }
         }
 
-        template <xsimd::builder::alignment aligned = {}>
+        template <xsimd::builder::alignment aligned = xsimd::builder::alignment{}>
         static void apply_range_simd(std::span<input_t const> in, std::span<output_t> out)
         {
             constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = Derived::pure };

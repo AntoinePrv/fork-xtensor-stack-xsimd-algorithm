@@ -28,7 +28,7 @@ namespace xsimd::test
 
         static constexpr auto name = "sqrt";
 
-        template <xsimd::builder::alignment aligned = {}>
+        template <xsimd::builder::alignment aligned = xsimd::builder::alignment{}>
         static void apply(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::sqrt<aligned>(in, out);
@@ -53,7 +53,7 @@ namespace xsimd::test
 
         static constexpr auto name = "abs";
 
-        template <xsimd::builder::alignment aligned = {}>
+        template <xsimd::builder::alignment aligned = xsimd::builder::alignment{}>
         static void apply(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::abs<aligned>(in, out);
