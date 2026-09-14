@@ -40,22 +40,22 @@ namespace
             static_cast<std::int64_t>(state.iterations() * size * 2 * sizeof(input_t)));
     }
 
-    template <typename Op, typename Alloc, alignment aligned = alignment {}>
+    template <typename Op, typename Alloc, typename Arch, alignment aligned = alignment {}>
     void bench_map_unary(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(
             state,
             [](auto in, auto out)
-            { Op::template range_apply_map_unary<aligned>(in, out); });
+            { Op::template range_apply_map_unary<aligned, Arch>(in, out); });
     }
 
-    template <typename Op, typename Alloc>
+    template <typename Op, typename Alloc, typename Arch>
     void bench_transform(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(
             state,
             [](auto in, auto out)
-            { Op::template range_apply_transform(in, out); });
+            { Op::template range_apply_transform<Arch>(in, out); });
     }
 
     template <typename Op, typename Alloc>
@@ -65,13 +65,13 @@ namespace
                                { Op::range_apply_scalar(in, out); });
     }
 
-    template <typename Op, typename Bench>
+    template <typename Op, typename Arch, typename Bench>
     void register_bench(std::string_view variant, Bench bench_fn)
     {
         using input_t = typename Op::input_t;
 
         auto* bench = benchmark::RegisterBenchmark(
-            std::format("{}/{}/{}", Op::name, xsimd::bench::type_name<input_t>(), variant),
+            std::format("{}/{}/{}/{}", Arch::name(), Op::name, xsimd::bench::type_name<input_t>(), variant),
             bench_fn);
         for (auto const size : xsimd::bench::bench_sizes<input_t>())
         {
@@ -83,17 +83,18 @@ namespace
     void register_benches()
     {
         using input_t = typename Op::input_t;
-        using aligned_alloc = typename xsimd::test::aligned_vector<input_t>::allocator_type;
-        using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t>::allocator_type;
+        using arch = xsimd::default_arch;
+        using aligned_alloc = typename xsimd::test::aligned_vector<input_t, arch>::allocator_type;
+        using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t, arch>::allocator_type;
 
         // To avoid an explosion of benchmarks, we probagly want to only benchmark aligned for
         // math ops, and benchmark map_unary/transform setups (alignment...) separately on a
         // few ops.
-        register_bench<Op>("scalar/aligned", bench_scalar<Op, aligned_alloc>);
-        register_bench<Op>("simd-map/aligned", bench_map_unary<Op, aligned_alloc, alignment { .start_aligned = true }>);
-        register_bench<Op>("simd-map/unaligned", bench_map_unary<Op, unaligned_alloc>);
-        register_bench<Op>("simd-transform/aligned", bench_map_unary<Op, aligned_alloc>);
-        register_bench<Op>("simd-transform/unaligned", bench_map_unary<Op, unaligned_alloc>);
+        register_bench<Op, arch>("scalar/aligned", bench_scalar<Op, aligned_alloc>);
+        register_bench<Op, arch>("simd-map/aligned", bench_map_unary<Op, aligned_alloc, arch, alignment { .start_aligned = true }>);
+        register_bench<Op, arch>("simd-map/unaligned", bench_map_unary<Op, unaligned_alloc, arch>);
+        register_bench<Op, arch>("simd-transform/aligned", bench_map_unary<Op, aligned_alloc, arch>);
+        register_bench<Op, arch>("simd-transform/unaligned", bench_map_unary<Op, unaligned_alloc, arch>);
     }
 
     bool const registered = []

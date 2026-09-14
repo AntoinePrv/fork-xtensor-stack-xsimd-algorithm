@@ -42,18 +42,19 @@ namespace xsimd::test
             }
         }
 
-        template <xsimd::builder::alignment aligned = xsimd::builder::alignment {}>
+        template <xsimd::builder::alignment aligned = xsimd::builder::alignment {}, typename Arch = xsimd::default_arch>
         static void range_apply_map_unary(std::span<input_t const> in, std::span<output_t> out)
         {
             constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = Derived::pure };
-            return xsimd::builder::map_unary<aligned, opts>(
+            return xsimd::builder::map_unary<aligned, opts, Arch>(
                 in, out, [](auto x)
                 { return Derived::apply_batch(x); });
         }
 
+        template <typename Arch = xsimd::default_arch>
         inline static void range_apply_transform(std::span<input_t const> in, std::span<output_t> out)
         {
-            return xsimd::transform(
+            return xsimd::transform<Arch>(
                 in.data(), in.data() + in.size(), out.data(), [](auto x)
                 { return Derived::apply_batch(x); });
         }
