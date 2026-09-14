@@ -11,36 +11,51 @@
 
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
 
 #include "xsimd_algorithm/builder.hpp"
-#include "xsimd_algorithm/math.hpp"
 
 #include "xsimd_test_utils/utils.hpp"
 
 namespace xsimd::test
 {
     /// Derives the scalar range application from the element-wise Derived::apply.
-    template <typename Derived, typename T>
+    template <typename Derived, typename In, typename Out = In>
     struct unary_op
     {
-        using value_type = T;
+        using input_t = In;
+        using output_t = Out;
 
-        static void apply_range_scalar(std::span<T const> in, std::span<T> out)
+        /// Allocator of output_t matching an allocator of input_t.
+        template <typename Alloc>
+        using output_allocator = typename std::allocator_traits<Alloc>::template rebind_alloc<output_t>;
+
+        static void apply_range_scalar(std::span<input_t const> in, std::span<output_t> out)
         {
             for (std::size_t i = 0; i < in.size(); ++i)
             {
-                out[i] = Derived::apply(in[i]);
+                out[i] = Derived::apply_scalar(in[i]);
             }
         }
 
+        template <xsimd::builder::alignment aligned = {}>
+        static void apply_range_simd(std::span<input_t const> in, std::span<output_t> out)
+        {
+            constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = Derived::pure };
+            return xsimd::builder::map_unary<aligned, opts>(
+                in, out, [](auto x)
+                { return Derived::apply_batch(x); });
+        }
+
         template <typename Alloc>
-        static std::pair<std::vector<T, Alloc>, std::vector<T, Alloc>> make_input_output(std::size_t size)
+        static auto make_input_output(std::size_t size)
+            -> std::pair<std::vector<input_t, Alloc>, std::vector<output_t, output_allocator<Alloc>>>
         {
             auto input = Derived::template make_input<Alloc>(size);
-            auto output = std::vector<T, Alloc>(input.size());
+            auto output = std::vector<output_t, output_allocator<Alloc>>(input.size());
             return { std::move(input), std::move(output) };
         }
     };
@@ -53,17 +68,12 @@ namespace xsimd::test
     struct sqrt_op : unary_op<sqrt_op<T>, T>
     {
         static constexpr auto name = "sqrt";
+        static constexpr bool pure = true;
 
-        static T apply(T x)
-        {
-            return std::sqrt(x);
-        }
+        static auto apply_scalar(T x) { return std::sqrt(x); }
 
-        template <xsimd::builder::alignment aligned = {}>
-        static void apply_range_simd(std::span<T const> in, std::span<T> out)
-        {
-            xsimd::algo::sqrt<aligned>(in, out);
-        }
+        template <typename A>
+        static auto apply_batch(xsimd::batch<T, A> x) { return xsimd::sqrt(x); }
 
         template <typename Alloc>
         static std::vector<T, Alloc> make_input(std::size_t size)
@@ -76,17 +86,12 @@ namespace xsimd::test
     struct abs_op : unary_op<abs_op<T>, T>
     {
         static constexpr auto name = "abs";
+        static constexpr bool pure = true;
 
-        static T apply(T x)
-        {
-            return std::abs(x);
-        }
+        static auto apply_scalar(T x) { return std::abs(x); }
 
-        template <xsimd::builder::alignment aligned = {}>
-        static void apply_range_simd(std::span<T const> in, std::span<T> out)
-        {
-            xsimd::algo::abs<aligned>(in, out);
-        }
+        template <typename A>
+        static auto apply_batch(xsimd::batch<T, A> x) { return xsimd::abs(x); }
 
         template <typename Alloc>
         static std::vector<T, Alloc> make_input(std::size_t size)
@@ -99,17 +104,12 @@ namespace xsimd::test
     struct exp_op : unary_op<exp_op<T>, T>
     {
         static constexpr auto name = "exp";
+        static constexpr bool pure = true;
 
-        static T apply(T x)
-        {
-            return std::exp(x);
-        }
+        static auto apply_scalar(T x) { return std::exp(x); }
 
-        template <xsimd::builder::alignment aligned = {}>
-        static void apply_range_simd(std::span<T const> in, std::span<T> out)
-        {
-            xsimd::algo::exp<aligned>(in, out);
-        }
+        template <typename A>
+        static auto apply_batch(xsimd::batch<T, A> x) { return xsimd::exp(x); }
 
         template <typename Alloc>
         static std::vector<T, Alloc> make_input(std::size_t size)
@@ -121,6 +121,25 @@ namespace xsimd::test
                 x = std::fmod(x, T { 20 }) - T { 10 };
             }
             return input;
+        }
+    };
+
+    /// Sign-extend to the type with twice as many bytes, one input batch to two output batches.
+    template <typename T>
+    struct widen_op : unary_op<widen_op<T>, T, xsimd::widen_t<T>>
+    {
+        static constexpr auto name = "widen";
+        static constexpr bool pure = true;
+
+        static auto apply_scalar(T x) { return static_cast<xsimd::widen_t<T>>(x); }
+
+        template <typename A>
+        static auto apply_batch(xsimd::batch<T, A> x) { return xsimd::widen(x); }
+
+        template <typename Alloc>
+        static std::vector<T, Alloc> make_input(std::size_t size)
+        {
+            return make_arange<T, Alloc>(size, -static_cast<T>(size / 2));
         }
     };
 }

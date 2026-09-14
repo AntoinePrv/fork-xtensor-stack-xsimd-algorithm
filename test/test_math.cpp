@@ -7,6 +7,7 @@
  ****************************************************************************/
 
 #include <cstddef>
+#include <type_traits>
 
 #include <doctest/doctest.h>
 
@@ -28,7 +29,14 @@ namespace
         for (std::size_t i = 0; i < input.size(); ++i)
         {
             CAPTURE(i);
-            CHECK(output[i] == doctest::Approx(Op::apply(input[i])));
+            if constexpr (std::is_floating_point_v<typename Op::output_t>)
+            {
+                CHECK(output[i] == doctest::Approx(Op::apply_scalar(input[i])));
+            }
+            else
+            {
+                CHECK(output[i] == Op::apply_scalar(input[i]));
+            }
         }
     }
 }
@@ -41,11 +49,13 @@ TEST_CASE_TEMPLATE(
     xsimd::test::abs_op<float>,
     xsimd::test::abs_op<double>,
     xsimd::test::exp_op<float>,
-    xsimd::test::exp_op<double>)
+    xsimd::test::exp_op<double>,
+    xsimd::test::widen_op<std::int32_t>
+    )
 {
-    using value_type = typename Op::value_type;
-    using aligned_allocator = typename xsimd::test::aligned_vector<value_type>::allocator_type;
-    using unaligned_allocator = typename xsimd::test::unaligned_vector<value_type>::allocator_type;
+    using input_t = typename Op::input_t;
+    using aligned_allocator = typename xsimd::test::aligned_vector<input_t>::allocator_type;
+    using unaligned_allocator = typename xsimd::test::unaligned_vector<input_t>::allocator_type;
 
     SUBCASE("aligned without header")
     {
