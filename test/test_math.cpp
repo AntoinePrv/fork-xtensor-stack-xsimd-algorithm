@@ -16,7 +16,7 @@
 
 namespace
 {
-    template <typename Op, typename Alloc, xsimd::builder::alignment aligned = xsimd::builder::alignment{}>
+    template <typename Op, typename Alloc, xsimd::builder::alignment aligned = xsimd::builder::alignment {}>
     void check_unary_math()
     {
         // Not a multiple of the batch size, to exercise the tail.
@@ -24,7 +24,7 @@ namespace
 
         auto [input, output] = Op::template make_input_output<Alloc>(test_size);
 
-        Op::template apply_range_simd<aligned>(xsimd::test::as_span(input), xsimd::test::as_span(output));
+        Op::template range_apply_map_unary<aligned>(xsimd::test::as_span(input), xsimd::test::as_span(output));
 
         for (std::size_t i = 0; i < input.size(); ++i)
         {

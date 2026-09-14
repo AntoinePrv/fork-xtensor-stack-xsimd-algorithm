@@ -40,20 +40,29 @@ namespace
             static_cast<std::int64_t>(state.iterations() * size * 2 * sizeof(input_t)));
     }
 
-    template <typename Op, typename Alloc, alignment aligned = alignment{}>
-    void bench_simd(benchmark::State& state)
+    template <typename Op, typename Alloc, alignment aligned = alignment {}>
+    void bench_map_unary(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(
             state,
             [](auto in, auto out)
-            { Op::template apply_range_simd<aligned>(in, out); });
+            { Op::template range_apply_map_unary<aligned>(in, out); });
+    }
+
+    template <typename Op, typename Alloc>
+    void bench_transform(benchmark::State& state)
+    {
+        bench_unary<Op, Alloc>(
+            state,
+            [](auto in, auto out)
+            { Op::template range_apply_transform(in, out); });
     }
 
     template <typename Op, typename Alloc>
     void bench_scalar(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(state, [](auto in, auto out)
-                               { Op::apply_range_scalar(in, out); });
+                               { Op::range_apply_scalar(in, out); });
     }
 
     template <typename Op, typename Bench>
@@ -77,9 +86,14 @@ namespace
         using aligned_alloc = typename xsimd::test::aligned_vector<input_t>::allocator_type;
         using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t>::allocator_type;
 
+        // To avoid an explosion of benchmarks, we probagly want to only benchmark aligned for
+        // math ops, and benchmark map_unary/transform setups (alignment...) separately on a
+        // few ops.
         register_bench<Op>("scalar/aligned", bench_scalar<Op, aligned_alloc>);
-        register_bench<Op>("simd/aligned", bench_simd<Op, aligned_alloc, alignment { .start_aligned = true }>);
-        register_bench<Op>("simd/unaligned", bench_simd<Op, unaligned_alloc>);
+        register_bench<Op>("simd-map/aligned", bench_map_unary<Op, aligned_alloc, alignment { .start_aligned = true }>);
+        register_bench<Op>("simd-map/unaligned", bench_map_unary<Op, unaligned_alloc>);
+        register_bench<Op>("simd-transform/aligned", bench_map_unary<Op, aligned_alloc>);
+        register_bench<Op>("simd-transform/unaligned", bench_map_unary<Op, unaligned_alloc>);
     }
 
     bool const registered = []

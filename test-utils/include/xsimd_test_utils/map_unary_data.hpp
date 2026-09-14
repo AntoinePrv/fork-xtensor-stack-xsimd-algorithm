@@ -6,8 +6,8 @@
  * The full license is in the file LICENSE, distributed with this software. *
  ****************************************************************************/
 
-#ifndef XSIMD_ALGORITHM_TEST_UTILS_MAP_UNARY_DATA_HPP
-#define XSIMD_ALGORITHM_TEST_UTILS_MAP_UNARY_DATA_HPP
+#ifndef XSIMD_ALGORITHM_TEST_UTILS_MATH_DATA_HPP
+#define XSIMD_ALGORITHM_TEST_UTILS_MATH_DATA_HPP
 
 #include <cmath>
 #include <cstddef>
@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "xsimd_algorithm/builder.hpp"
+#include "xsimd_algorithm/stl/transform.hpp"
 
 #include "xsimd_test_utils/utils.hpp"
 
@@ -33,7 +34,7 @@ namespace xsimd::test
         template <typename Alloc>
         using output_allocator = typename std::allocator_traits<Alloc>::template rebind_alloc<output_t>;
 
-        static void apply_range_scalar(std::span<input_t const> in, std::span<output_t> out)
+        static void range_apply_scalar(std::span<input_t const> in, std::span<output_t> out)
         {
             for (std::size_t i = 0; i < in.size(); ++i)
             {
@@ -41,12 +42,19 @@ namespace xsimd::test
             }
         }
 
-        template <xsimd::builder::alignment aligned = xsimd::builder::alignment{}>
-        static void apply_range_simd(std::span<input_t const> in, std::span<output_t> out)
+        template <xsimd::builder::alignment aligned = xsimd::builder::alignment {}>
+        static void range_apply_map_unary(std::span<input_t const> in, std::span<output_t> out)
         {
             constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = Derived::pure };
             return xsimd::builder::map_unary<aligned, opts>(
                 in, out, [](auto x)
+                { return Derived::apply_batch(x); });
+        }
+
+        inline static void range_apply_transform(std::span<input_t const> in, std::span<output_t> out)
+        {
+            return xsimd::transform(
+                in.data(), in.data() + in.size(), out.data(), [](auto x)
                 { return Derived::apply_batch(x); });
         }
 
