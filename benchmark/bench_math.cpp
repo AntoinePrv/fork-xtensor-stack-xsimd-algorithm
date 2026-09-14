@@ -93,8 +93,11 @@ namespace
         register_bench<Op, arch>("scalar/aligned", bench_scalar<Op, aligned_alloc>);
         register_bench<Op, arch>("simd-map/aligned", bench_map_unary<Op, aligned_alloc, arch, alignment { .start_aligned = true }>);
         register_bench<Op, arch>("simd-map/unaligned", bench_map_unary<Op, unaligned_alloc, arch>);
-        register_bench<Op, arch>("simd-transform/aligned", bench_map_unary<Op, aligned_alloc, arch>);
-        register_bench<Op, arch>("simd-transform/unaligned", bench_map_unary<Op, unaligned_alloc, arch>);
+        if constexpr (std::is_same_v<typename Op::input_t, typename Op::output_t>)
+        {
+            register_bench<Op, arch>("simd-transform/aligned", bench_transform<Op, aligned_alloc, arch>);
+            register_bench<Op, arch>("simd-transform/unaligned", bench_transform<Op, unaligned_alloc, arch>);
+        }
     }
 
     bool const registered = []

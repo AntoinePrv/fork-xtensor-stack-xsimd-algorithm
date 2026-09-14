@@ -55,8 +55,18 @@ namespace xsimd::test
         inline static void range_apply_transform(std::span<input_t const> in, std::span<output_t> out)
         {
             return xsimd::transform<Arch>(
-                in.data(), in.data() + in.size(), out.data(), [](auto x)
-                { return Derived::apply_batch(x); });
+                in.data(), in.data() + in.size(), out.data(),
+                []<typename T>(T x)
+                {
+                    if constexpr (xsimd::is_batch<T>::value)
+                    {
+                        return Derived::apply_batch(x);
+                    }
+                    else
+                    {
+                        return Derived::apply_scalar(x);
+                    }
+                });
         }
 
         template <typename Alloc>
