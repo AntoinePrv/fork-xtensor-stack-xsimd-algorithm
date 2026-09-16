@@ -19,6 +19,7 @@ find_package(benchmark REQUIRED)
 set(XSIMD_ALGORITHM_BENCHMARKS
     main.cpp
     bench_math.cpp
+    bench_map_unary.cpp
 )
 
 add_executable(benchmark_xsimd_algorithm ${XSIMD_ALGORITHM_BENCHMARKS})

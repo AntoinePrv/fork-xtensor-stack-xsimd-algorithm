@@ -18,32 +18,27 @@ namespace
 {
     using xsimd::bench::bench_map_unary;
     using xsimd::bench::bench_scalar;
+    using xsimd::bench::bench_transform;
     using xsimd::bench::register_bench;
     using xsimd::builder::alignment;
 
-    /// Register math benchmarks.
-    ///
-    /// To avoid an explosion of benchmarks, we only add a simple aligned benchmark.
-    /// This will let us know the performance of the xsimd wrappers.
-    /// See bench_map_unary for benchmarks on the different flavor of mapping, alignment,
-    /// headers and trailers.
-    ///
-    /// This benchmark aims to test raw the performance of intrinsic, unrelated to
-    /// how they are iterated on (alignment, memory etc). To do so, they aim to stay
-    /// in L1 cache.
     template <typename Op>
     void register_benches()
     {
         using input_t = typename Op::input_t;
         using arch = xsimd::default_arch;
         using aligned_alloc = typename xsimd::test::aligned_vector<input_t, arch>::allocator_type;
+        using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t, arch>::allocator_type;
 
-        register_bench<Op, arch>(
-            "hot/scalar", bench_scalar<Op, aligned_alloc>, /* sizes = */ { 1024 });
-        register_bench<Op, arch>(
-            "hot/simd",
-            bench_map_unary<Op, aligned_alloc, arch, alignment { .start_aligned = true, .end_aligned = true }>,
-            /* sizes = */ { 1024 });
+        register_bench<Op, arch>("aligned/scalar", bench_scalar<Op, aligned_alloc>);
+        register_bench<Op, arch>("aligned/simd/map:header+trailer", bench_map_unary<Op, aligned_alloc, arch>);
+        register_bench<Op, arch>("aligned/simd/map:trailer", bench_map_unary<Op, aligned_alloc, arch, alignment { .start_aligned = true }>);
+        register_bench<Op, arch>("aligned/simd/transform:header+trailer", bench_transform<Op, aligned_alloc, arch>);
+
+        register_bench<Op, arch>("unaligned/scalar", bench_scalar<Op, unaligned_alloc>);
+        register_bench<Op, arch>("unaligned/simd/map:header+trailer", bench_map_unary<Op, unaligned_alloc, arch>);
+        register_bench<Op, arch>("unaligned/simd/map:trailer", bench_map_unary<Op, unaligned_alloc, arch, alignment { .start_aligned = true }>);
+        register_bench<Op, arch>("unaligned/simd/transform:header+trailer", bench_transform<Op, unaligned_alloc, arch>);
     }
 
     bool const registered = []
@@ -54,9 +49,6 @@ namespace
         register_benches<xsimd::test::abs_op<double>>();
         register_benches<xsimd::test::exp_op<float>>();
         register_benches<xsimd::test::exp_op<double>>();
-        register_benches<xsimd::test::widen_op<std::int8_t>>();
-        register_benches<xsimd::test::widen_op<std::int16_t>>();
-        register_benches<xsimd::test::widen_op<std::int32_t>>();
         return true;
     }();
 }
