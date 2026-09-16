@@ -193,9 +193,53 @@ namespace xsimd::builder
             }
         }
 
+        template <bool load_aligned, bool store_aligned, typename Func>
+        XSIMD_INLINE static void map_chunk(
+            In const* XSIMD_RESTRICT... begin,
+            Out* XSIMD_RESTRICT out,
+            Func&& func)
+        {
+            store_batches<store_aligned>(func(load_batches<load_aligned>(begin)...), out);
+        }
+
+        template <typename Func>
+        XSIMD_INLINE static void map_chunk_unaligned(
+            In const* XSIMD_RESTRICT... begin,
+            Out* XSIMD_RESTRICT out,
+            Func&& func)
+        {
+            return map_chunk<false, false>(begin..., out, std::forward<Func>(func));
+        }
+
+        template <bool load_aligned, bool store_aligned, typename Func, std::size_t... step>
+        XSIMD_INLINE static void map_unrolled(
+            In const* XSIMD_RESTRICT... begin,
+            Out* XSIMD_RESTRICT out,
+            Func&& func,
+            std::index_sequence<step...>)
+        {
+            static constexpr std::size_t factor = sizeof...(step);
+
+            constexpr auto read = []<class T>(T const* in)
+            {
+                std::array<batch_array<T>, factor> x;
+                ((x[step] = load_batches<load_aligned>(in + step * chunk_size)), ...);
+                return x;
+            };
+
+            constexpr auto map = [](auto* out, auto&& f, auto const&... x)
+            {
+                auto map_one = [&](std::size_t s)
+                { store_batches<store_aligned>(f(x[s]...), out + s * chunk_size); };
+                (map_one(step), ...);
+            };
+
+            map(out, std::forward<Func>(func), read(begin)...);
+        }
+
         /// Map fewer elements than a full chunk through a scratch buffer.
         template <typename Func>
-        XSIMD_INLINE static void map_chunk(
+        XSIMD_INLINE static void map_chunk_partial(
             In const* XSIMD_RESTRICT... begin,
             Out* XSIMD_RESTRICT out,
             std::size_t count,
@@ -209,12 +253,12 @@ namespace xsimd::builder
 
             constexpr auto read = []<typename T>(T const* in, std::size_t cnt)
             {
-                aligned_array<T, A, chunk_size> in_buffer = {};
+                alignas(A::alignment()) std::array<T, chunk_size> in_buffer = {};
                 std::memcpy(in_buffer.data(), in, cnt * sizeof(T));
                 return load_batches<true>(in_buffer.data());
             };
 
-            aligned_array<Out, A, chunk_size> out_buffer;
+            alignas(A::alignment()) std::array<Out, chunk_size> out_buffer;
             store_batches<true>(func(read(begin, count)...), out_buffer.data());
             std::memcpy(out, out_buffer.data(), count * sizeof(Out));
         }
@@ -266,12 +310,11 @@ namespace xsimd::builder
             if (opts.pure && (head != 0) && (in.size() >= H::chunk_size))
             {
                 // Recompute the head as a full step, the body overwrites the excess.
-                auto x = H::template load_batches<false>(in_iter);
-                H::template store_batches<false>(mapper(x), out_iter);
+                H::template map_chunk_unaligned(in_iter, out_iter, mapper);
             }
             else
             {
-                H::map_chunk(in_iter, out_iter, head, mapper);
+                H::map_chunk_partial(in_iter, out_iter, head, mapper);
             }
             in_iter += head;
             out_iter += head;
@@ -280,24 +323,15 @@ namespace xsimd::builder
         // Unrolled loop processing multiple steps at a time
         while (static_cast<std::size_t>(in_end - in_iter) >= opts.unroll_factor * H::chunk_size)
         {
-            std::array<typename H::template batch_array<T>, opts.unroll_factor> x;
-            for (std::size_t u = 0; u < opts.unroll_factor; ++u)
-            {
-                x[u] = H::template load_batches<load_is_aligned>(in_iter + u * H::chunk_size);
-            }
-            for (std::size_t u = 0; u < opts.unroll_factor; ++u)
-            {
-                H::template store_batches<store_is_aligned>(mapper(x[u]), out_iter + u * H::chunk_size);
-            }
-
+            H::template map_unrolled<load_is_aligned, store_is_aligned>(
+                in_iter, out_iter, mapper, std::make_index_sequence<opts.unroll_factor>());
             in_iter += opts.unroll_factor * H::chunk_size;
             out_iter += opts.unroll_factor * H::chunk_size;
         }
 
         while (static_cast<std::size_t>(in_end - in_iter) >= H::chunk_size)
         {
-            auto x = H::template load_batches<load_is_aligned>(in_iter);
-            H::template store_batches<store_is_aligned>(mapper(x), out_iter);
+            H::template map_chunk<load_is_aligned, store_is_aligned>(in_iter, out_iter, mapper);
             in_iter += H::chunk_size;
             out_iter += H::chunk_size;
         }
@@ -310,12 +344,11 @@ namespace xsimd::builder
             if (opts.pure && (in_iter != in_end) && (in.size() >= H::chunk_size)) [[likely]]
             {
                 // Recompute overlapping data, this time starting from the end.
-                auto x = H::template load_batches<false>(in_end - H::chunk_size);
-                H::template store_batches<false>(mapper(x), out_end - H::chunk_size);
+                H::template map_chunk_unaligned(in_end - H::chunk_size, out_end - H::chunk_size, mapper);
             }
             else
             {
-                H::map_chunk(in_iter, out_iter, in_end - in_iter, mapper);
+                H::map_chunk_partial(in_iter, out_iter, in_end - in_iter, mapper);
             }
         }
     }
