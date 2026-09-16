@@ -146,12 +146,15 @@ namespace xsimd::builder
         }
     }
 
-    template <typename A, typename Out, typename In>
+    template <typename T, typename A, std::size_t N>
+    struct alignas(A::alignment()) alignas(T) aligned_array : std::array<T, N>
+    {
+    };
+
+    template <typename A, typename Out, typename... In>
     struct map_helper
     {
-        using out_t = Out;
-        using in_t = In;
-        static constexpr std::size_t min_elem_size = std::min(sizeof(out_t), sizeof(in_t));
+        static constexpr std::size_t min_elem_size = std::min({ sizeof(Out), sizeof(In)... });
 
         /// Number of batches of T spanning as many elements as one batch of the widest element.
         ///
@@ -166,13 +169,11 @@ namespace xsimd::builder
         template <typename T>
         using batch_array = std::array<xsimd::batch<T, A>, batch_arity<T>()>;
 
-        static constexpr std::size_t out_arity = batch_arity<out_t>();
-        static constexpr std::size_t in_arity = batch_arity<in_t>();
-        static constexpr std::size_t chunk_size = in_arity * xsimd::batch<in_t, A>::size;
+        static constexpr std::size_t chunk_size = batch_arity<Out>() * xsimd::batch<Out, A>::size;
 
         /// Load an array of batches.
         template <bool aligned, typename T>
-        static XSIMD_INLINE auto load_batches(T const* ptr) -> batch_array<T>
+        XSIMD_INLINE static auto load_batches(T const* ptr) -> batch_array<T>
         {
             batch_array<T> x;
             for (std::size_t i = 0; i < x.size(); ++i)
@@ -184,43 +185,40 @@ namespace xsimd::builder
 
         /// Store an array of batches.
         template <bool aligned, typename T>
-        static XSIMD_INLINE void store_batches(batch_array<T> const& x, T* ptr)
+        XSIMD_INLINE static void store_batches(batch_array<T> const& x, T* ptr)
         {
             for (std::size_t i = 0; i < x.size(); ++i)
             {
                 store_batch<T, A, aligned>(x[i], ptr + i * xsimd::batch<T, A>::size);
             }
         }
-    };
 
-    /// Map fewer elements than a full step through a scratch buffer.
-    template <
-        typename Arch = xsimd::default_arch,
-        typename T, typename U, typename Func>
-    XSIMD_INLINE void map_unary_batch(
-        T const* XSIMD_RESTRICT begin,
-        U* XSIMD_RESTRICT out,
-        std::size_t count,
-        Func&& func)
-    {
-        using H = map_helper<Arch, U, T>;
-
-        assert(count <= H::chunk_size);
-        if (count == 0) [[unlikely]]
+        /// Map fewer elements than a full chunk through a scratch buffer.
+        template <typename Func>
+        XSIMD_INLINE static void map_chunk(
+            In const* XSIMD_RESTRICT... begin,
+            Out* XSIMD_RESTRICT out,
+            std::size_t count,
+            Func&& func)
         {
-            return;
+            assert(count <= chunk_size);
+            if (count == 0) [[unlikely]]
+            {
+                return;
+            }
+
+            constexpr auto read = []<typename T>(T const* in, std::size_t cnt)
+            {
+                aligned_array<T, A, chunk_size> in_buffer = {};
+                std::memcpy(in_buffer.data(), in, cnt * sizeof(T));
+                return load_batches<true>(in_buffer.data());
+            };
+
+            aligned_array<Out, A, chunk_size> out_buffer;
+            store_batches<true>(func(read(begin, count)...), out_buffer.data());
+            std::memcpy(out, out_buffer.data(), count * sizeof(Out));
         }
-
-        auto mapper = internal::wrap_params_as_1d_arrays(std::forward<Func>(func));
-
-        alignas(Arch::alignment()) std::array<T, H::chunk_size> input_buffer {};
-        alignas(Arch::alignment()) std::array<U, H::chunk_size> output_buffer;
-
-        std::memcpy(input_buffer.data(), begin, count * sizeof(T));
-        auto x = H::template load_batches<true>(input_buffer.data());
-        H::template store_batches<true>(mapper(x), output_buffer.data());
-        std::memcpy(out, output_buffer.data(), count * sizeof(U));
-    }
+    };
 
     /// Apply func elementwise over in, writing as many elements to out.
     ///
@@ -273,7 +271,7 @@ namespace xsimd::builder
             }
             else
             {
-                map_unary_batch<Arch>(in_iter, out_iter, head, func);
+                H::map_chunk(in_iter, out_iter, head, mapper);
             }
             in_iter += head;
             out_iter += head;
@@ -317,7 +315,7 @@ namespace xsimd::builder
             }
             else
             {
-                map_unary_batch<Arch>(in_iter, out_iter, in_end - in_iter, func);
+                H::map_chunk(in_iter, out_iter, in_end - in_iter, mapper);
             }
         }
     }
