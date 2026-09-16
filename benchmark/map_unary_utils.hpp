@@ -21,6 +21,7 @@
 namespace xsimd::bench
 {
     using xsimd::builder::alignment;
+    using xsimd::builder::unary_options;
 
     template <typename Op, typename Alloc, typename Apply>
     void bench_unary(benchmark::State& state, Apply apply)
@@ -42,13 +43,18 @@ namespace xsimd::bench
             static_cast<std::int64_t>(state.iterations() * size * 2 * sizeof(input_t)));
     }
 
-    template <typename Op, typename Alloc, typename Arch, alignment aligned = alignment {}>
+    template <
+        typename Op,
+        typename Alloc,
+        typename Arch,
+        alignment aligned = alignment {},
+        unary_options opts = unary_options {}>
     void bench_map_unary(benchmark::State& state)
     {
         bench_unary<Op, Alloc>(
             state,
             [](auto in, auto out)
-            { Op::template range_apply_map_unary<aligned, Arch>(in, out); });
+            { Op::template range_apply_map_unary<aligned, opts, Arch>(in, out); });
     }
 
     template <typename Op, typename Alloc, typename Arch>
