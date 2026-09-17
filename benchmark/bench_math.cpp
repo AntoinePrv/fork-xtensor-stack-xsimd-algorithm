@@ -19,7 +19,7 @@ namespace
     using xsimd::bench::bench_map_unary;
     using xsimd::bench::bench_scalar;
     using xsimd::bench::register_bench;
-    using xsimd::builder::alignment;
+    using xsimd::builder::alignment_options;
 
     /// Register math benchmarks.
     ///
@@ -42,7 +42,7 @@ namespace
             "hot/scalar", bench_scalar<Op, aligned_alloc>, /* sizes = */ { 1024 });
         register_bench<Op, arch>(
             "hot/simd",
-            bench_map_unary<Op, aligned_alloc, arch, alignment { .start_aligned = true, .end_aligned = true }>,
+            bench_map_unary<Op, aligned_alloc, arch, alignment_options { .start_aligned = true, .end_aligned = true }>,
             /* sizes = */ { 1024 });
     }
 

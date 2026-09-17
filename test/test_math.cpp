@@ -16,7 +16,7 @@
 
 namespace
 {
-    template <typename Op, typename Alloc, xsimd::builder::alignment aligned = xsimd::builder::alignment {}>
+    template <typename Op, typename Alloc, xsimd::builder::alignment_options aligned = xsimd::builder::alignment_options {}>
     void check_unary_math()
     {
         // Not a multiple of the batch size, to exercise the tail.
@@ -58,7 +58,7 @@ TEST_CASE_TEMPLATE(
 
     SUBCASE("aligned without header")
     {
-        check_unary_math<Op, aligned_allocator, xsimd::builder::alignment { .start_aligned = true }>();
+        check_unary_math<Op, aligned_allocator, xsimd::builder::alignment_options { .start_aligned = true }>();
     }
 
     SUBCASE("aligned with header")

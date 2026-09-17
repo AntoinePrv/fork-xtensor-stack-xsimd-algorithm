@@ -25,12 +25,6 @@
 
 namespace xsimd::builder
 {
-    struct alignment
-    {
-        bool start_aligned = false;
-        bool end_aligned = false;
-    };
-
     /// Return the pointer before the input with the given alignment or itself if aligned.
     template <typename T>
     XSIMD_INLINE auto prev_aligned(T* ptr, std::size_t alignment) -> T*
@@ -58,20 +52,14 @@ namespace xsimd::builder
     }
 
     /// Check if two spans are aliasing each others (overlapping).
-    template <typename T, typename U>
-    XSIMD_INLINE auto are_aliased(std::span<T> lhs, std::span<U> rhs) -> bool
+    template <typename T, std::size_t et, typename U, std::size_t eu>
+    XSIMD_INLINE auto are_aliased(std::span<T, et> lhs, std::span<U, eu> rhs) -> bool
     {
         // Comparing pointers from unrelated objects is unspecified, integers are not.
         auto const lhs_begin = reinterpret_cast<std::uintptr_t>(lhs.data());
         auto const rhs_begin = reinterpret_cast<std::uintptr_t>(rhs.data());
         return (lhs_begin < rhs_begin + rhs.size_bytes()) && (rhs_begin < lhs_begin + lhs.size_bytes());
     }
-
-    struct unary_options
-    {
-        std::size_t unroll_factor = 4;
-        bool pure = false;
-    };
 
     /// Load batch wrapper with an alignment as template parameter.
     template <typename T, typename A, bool aligned>
@@ -100,6 +88,18 @@ namespace xsimd::builder
             x.store_unaligned(ptr);
         }
     }
+
+    struct alignment_options
+    {
+        bool start_aligned = false;
+        bool end_aligned = false;
+    };
+
+    struct map_options
+    {
+        std::size_t unroll_factor = 4;
+        bool pure = false;
+    };
 
     namespace internal
     {
@@ -145,7 +145,7 @@ namespace xsimd::builder
             };
         }
 
-        template <unary_options opts, alignment align, typename A, typename Out, typename... In>
+        template <map_options opts, alignment_options align, typename A, typename Out, typename... In>
         struct map_helper
         {
             static constexpr std::size_t n_input = sizeof...(In);
@@ -428,19 +428,38 @@ namespace xsimd::builder
     /// as many batches as the factor to the smallest element size, so that the function
     /// processes a fixed amount of elements.
     template <
-        alignment align = alignment {},
-        unary_options opts = unary_options {},
+        alignment_options align = alignment_options {},
+        map_options opts = map_options {},
         typename Arch = xsimd::default_arch,
-        typename T, typename U, typename Func>
-    XSIMD_INLINE void map_unary(std::span<T const> in, std::span<U> out, Func&& func)
+        typename Func,
+        typename Out,
+        typename... In>
+    XSIMD_INLINE void map_n(Func&& func, Out&& out, In&&... in)
     {
-        using H = internal::map_helper<opts, align, Arch, U, T>;
+        using H = internal::map_helper<
+            opts,
+            align,
+            Arch,
+            typename std::remove_cvref_t<Out>::value_type,
+            typename std::remove_cvref_t<In>::value_type...>;
 
-        assert(in.size() == out.size());
-        assert(!are_aliased(in, out));
+        assert((... && (in.size() == out.size())));
+        assert((... && !are_aliased(std::span(in.data(), in.size()), std::span(out.data(), out.size()))));
 
         auto mapper = internal::wrap_params_as_1d_arrays(std::forward<Func>(func));
-        return H::template map_n(in.data(), out.data(), in.size(), mapper);
+        return H::template map_n(in.data()..., out.data(), out.size(), mapper);
+    }
+
+    template <
+        alignment_options align = alignment_options {},
+        map_options opts = map_options {},
+        typename Arch = xsimd::default_arch,
+        typename Func,
+        typename Out,
+        typename In>
+    XSIMD_INLINE void map_unary(In&& in, Out&& out, Func&& func)
+    {
+        return map_n<align, opts, Arch>(func, out, in);
     }
 }
 

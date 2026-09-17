@@ -21,8 +21,8 @@ namespace
     using xsimd::bench::bench_scalar;
     using xsimd::bench::bench_transform;
     using xsimd::bench::register_bench;
-    using xsimd::builder::alignment;
-    using xsimd::builder::unary_options;
+    using xsimd::builder::alignment_options;
+    using xsimd::builder::map_options;
 
     template <typename Op>
     void register_benches()
@@ -32,8 +32,8 @@ namespace
         using aligned_alloc = typename xsimd::test::aligned_vector<input_t, arch>::allocator_type;
         using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t, arch>::allocator_type;
 
-        constexpr auto noalign = alignment {};
-        constexpr auto noopts = unary_options { .unroll_factor = 1, .pure = false };
+        constexpr auto noalign = alignment_options {};
+        constexpr auto noopts = map_options { .unroll_factor = 1, .pure = false };
 
         register_bench<Op, arch>("aligned/scalar", bench_scalar<Op, aligned_alloc>);
         register_bench<Op, arch>("aligned/simd/transform", bench_transform<Op, aligned_alloc, arch>);
@@ -44,21 +44,21 @@ namespace
             "aligned/simd/map:pure",
             bench_map_unary<
                 Op, aligned_alloc, arch,
-                noalign, unary_options { .unroll_factor = 1, .pure = true }>);
+                noalign, map_options { .unroll_factor = 1, .pure = true }>);
         register_bench<Op, arch>(
             "aligned/simd/map:unroll4",
             bench_map_unary<
-                Op, aligned_alloc, arch, noalign, unary_options { .unroll_factor = 4 }>);
+                Op, aligned_alloc, arch, noalign, map_options { .unroll_factor = 4 }>);
         register_bench<Op, arch>(
             "aligned/simd/map:noheader",
             bench_map_unary<
                 Op, aligned_alloc, arch,
-                alignment { .start_aligned = true }, noopts>);
+                alignment_options { .start_aligned = true }, noopts>);
         register_bench<Op, arch>(
             "aligned/simd/map:noheader+pure+unroll4",
             bench_map_unary<
                 Op, aligned_alloc, arch,
-                alignment { .start_aligned = true }, unary_options { .unroll_factor = 4, .pure = true }>);
+                alignment_options { .start_aligned = true }, map_options { .unroll_factor = 4, .pure = true }>);
 
         register_bench<Op, arch>("unaligned/scalar", bench_scalar<Op, unaligned_alloc>);
         register_bench<Op, arch>("unaligned/simd/transform", bench_transform<Op, unaligned_alloc, arch>);
@@ -69,16 +69,16 @@ namespace
             "unaligned/simd/map:pure",
             bench_map_unary<
                 Op, unaligned_alloc, arch,
-                noalign, unary_options { .unroll_factor = 1, .pure = true }>);
+                noalign, map_options { .unroll_factor = 1, .pure = true }>);
         register_bench<Op, arch>(
             "unaligned/simd/map:unroll4",
             bench_map_unary<
-                Op, unaligned_alloc, arch, noalign, unary_options { .unroll_factor = 4 }>);
+                Op, unaligned_alloc, arch, noalign, map_options { .unroll_factor = 4 }>);
         register_bench<Op, arch>(
             "unaligned/simd/map:pure+unroll4",
             bench_map_unary<
                 Op, unaligned_alloc, arch,
-                noalign, unary_options { .unroll_factor = 4, .pure = true }>);
+                noalign, map_options { .unroll_factor = 4, .pure = true }>);
     }
 
     bool const registered = []

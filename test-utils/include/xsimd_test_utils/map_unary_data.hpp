@@ -23,8 +23,8 @@
 
 namespace xsimd::test
 {
-    using xsimd::builder::alignment;
-    using xsimd::builder::unary_options;
+    using xsimd::builder::alignment_options;
+    using xsimd::builder::map_options;
 
     /// Derives the scalar range application from the element-wise Derived::apply.
     template <typename Derived, typename In, typename Out = In>
@@ -46,8 +46,8 @@ namespace xsimd::test
         }
 
         template <
-            alignment aligned = alignment {},
-            unary_options opts = unary_options {},
+            alignment_options aligned = alignment_options {},
+            map_options opts = map_options {},
             typename Arch = xsimd::default_arch>
         static void range_apply_map_unary(std::span<input_t const> in, std::span<output_t> out)
         {

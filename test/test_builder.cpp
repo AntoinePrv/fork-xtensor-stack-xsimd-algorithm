@@ -30,7 +30,7 @@ TEST_CASE("map_unary int32 to int64")
     const auto func = [](auto const& x)
     { return xsimd::widen(x + input_type { 1 }); };
 
-    xsimd::builder::map_unary(xsimd::test::as_span(input), xsimd::test::as_span(output), func);
+    xsimd::builder::map_unary(input, output, func);
 
     for (std::size_t i = 0; i < size; ++i)
     {

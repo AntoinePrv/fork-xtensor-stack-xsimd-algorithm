@@ -16,36 +16,36 @@
 namespace xsimd::algo
 {
     template <
-        xsimd::builder::alignment align = xsimd::builder::alignment{},
+        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void sqrt(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
         return xsimd::builder::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return sqrt(x); });
     }
 
     template <
-        xsimd::builder::alignment align = xsimd::builder::alignment{},
+        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void abs(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
         return xsimd::builder::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return abs(x); });
     }
 
     template <
-        xsimd::builder::alignment align = xsimd::builder::alignment{},
+        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void exp(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::unary_options opts = { .unroll_factor = 4, .pure = true };
+        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
         return xsimd::builder::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return exp(x); });
