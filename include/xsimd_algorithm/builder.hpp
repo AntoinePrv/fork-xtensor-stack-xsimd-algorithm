@@ -144,147 +144,289 @@ namespace xsimd::builder
                 }
             };
         }
-    }
 
-    template <typename A, typename Out, typename... In>
-    struct map_helper
-    {
-        static constexpr std::size_t min_elem_size = std::min({ sizeof(Out), sizeof(In)... });
-
-        /// Number of batches of T spanning as many elements as one batch of the widest element.
-        ///
-        /// Pairing that many batches on all side lets both sides advance by the same number of
-        /// elements, so a mapping stays elementwise regardless of the respective lane counts.
-        template <typename T>
-        static constexpr std::size_t batch_arity()
+        template <unary_options opts, alignment align, typename A, typename Out, typename... In>
+        struct map_helper
         {
-            return sizeof(T) / min_elem_size;
-        }
+            static constexpr std::size_t n_input = sizeof...(In);
+            static constexpr auto input_elem_size = std::array { sizeof(In)... };
 
-        template <typename T>
-        using batch_array = std::array<xsimd::batch<T, A>, batch_arity<T>()>;
+            static constexpr std::size_t min_elem_size = std::min({ sizeof(Out), sizeof(In)... });
+            static constexpr std::size_t max_elem_size = std::max({ sizeof(Out), sizeof(In)... });
 
-        static constexpr std::size_t chunk_size = batch_arity<Out>() * xsimd::batch<Out, A>::size;
+            /// Inputs and output may not have the same alignment so it may be impossible
+            /// to get all aligned. We align preferably the output (more expensive unaligned
+            /// stores) or otherwise one of the input.
+            static constexpr bool align_output = sizeof(Out) == max_elem_size;
 
-        /// Load an array of batches.
-        template <bool aligned, typename T>
-        XSIMD_INLINE static auto load_batches(T const* ptr) -> batch_array<T>
-        {
-            batch_array<T> x;
-            for (std::size_t i = 0; i < x.size(); ++i)
+            static constexpr std::array<bool, n_input> get_align_inputs()
             {
-                x[i] = load_batch<T, A, aligned>(ptr + i * xsimd::batch<T, A>::size);
+                std::array<bool, n_input> out {};
+                bool found = false;
+                for (std::size_t k = 0; k < out.size(); ++k)
+                {
+                    if (found || align_output)
+                    {
+                        out[k] = false;
+                    }
+                    else
+                    {
+                        found = input_elem_size[k] == max_elem_size;
+                        out[k] = found;
+                    }
+                }
+                return out;
             }
-            return x;
-        }
 
-        /// Store an array of batches.
-        template <bool aligned, typename T>
-        XSIMD_INLINE static void store_batches(batch_array<T> const& x, T* ptr)
-        {
-            for (std::size_t i = 0; i < x.size(); ++i)
+            static constexpr std::array<bool, n_input> align_inputs = get_align_inputs();
+
+            static constexpr bool output_is_aligned = align_output || align.start_aligned;
+
+            static constexpr std::array<bool, n_input> get_input_is_aligned()
             {
-                store_batch<T, A, aligned>(x[i], ptr + i * xsimd::batch<T, A>::size);
+                std::array<bool, n_input> out = align_inputs;
+                for (bool& b : out)
+                {
+                    b = b || align.start_aligned;
+                }
+                return out;
             }
-        }
 
-        template <bool load_aligned, bool store_aligned, typename Func>
-        XSIMD_INLINE static void map_chunk(
-            In const* XSIMD_RESTRICT... begin,
-            Out* XSIMD_RESTRICT out,
-            Func&& func)
-        {
-            store_batches<store_aligned>(func(load_batches<load_aligned>(begin)...), out);
-        }
+            static constexpr std::array<bool, n_input> input_is_aligned = get_input_is_aligned();
 
-        template <typename Func>
-        XSIMD_INLINE static void map_chunk_unaligned(
-            In const* XSIMD_RESTRICT... begin,
-            Out* XSIMD_RESTRICT out,
-            Func&& func)
-        {
-            return map_chunk<false, false>(begin..., out, std::forward<Func>(func));
-        }
-
-        template <bool load_aligned, bool store_aligned, typename Func, std::size_t... step>
-        XSIMD_INLINE static void map_unrolled(
-            In const* XSIMD_RESTRICT... begin,
-            Out* XSIMD_RESTRICT out,
-            Func&& func,
-            std::index_sequence<step...>)
-        {
-            static constexpr std::size_t factor = sizeof...(step);
-
-            constexpr auto read = []<class T>(T const* in)
+            /// Number of batches of T spanning as many elements as one batch of the widest element.
+            ///
+            /// Pairing that many batches on all side lets both sides advance by the same number of
+            /// elements, so a mapping stays elementwise regardless of the respective lane counts.
+            template <typename T>
+            static constexpr std::size_t batch_arity()
             {
-                std::array<batch_array<T>, factor> x;
-                ((x[step] = load_batches<load_aligned>(in + step * chunk_size)), ...);
+                return sizeof(T) / min_elem_size;
+            }
+
+            template <typename T>
+            using batch_array = std::array<xsimd::batch<T, A>, batch_arity<T>()>;
+
+            static constexpr std::size_t chunk_size = batch_arity<Out>() * xsimd::batch<Out, A>::size;
+
+            /// Load an array of batches.
+            template <bool aligned, typename T>
+            XSIMD_INLINE static auto load_batches(T const* ptr) -> batch_array<T>
+            {
+                batch_array<T> x;
+                for (std::size_t i = 0; i < x.size(); ++i)
+                {
+                    x[i] = load_batch<T, A, aligned>(ptr + i * xsimd::batch<T, A>::size);
+                }
                 return x;
-            };
-
-            constexpr auto map = [](auto* out, auto&& f, auto const&... x)
-            {
-                auto map_one = [&](std::size_t s)
-                { store_batches<store_aligned>(f(x[s]...), out + s * chunk_size); };
-                (map_one(step), ...);
-            };
-
-            map(out, std::forward<Func>(func), read(begin)...);
-        }
-
-        template <bool load_aligned, bool store_aligned, std::size_t unroll_factor, typename Func>
-        XSIMD_INLINE static auto map_loop(
-            In const* XSIMD_RESTRICT... begin,
-            Out* XSIMD_RESTRICT out,
-            std::size_t count,
-            Func&& func) -> std::size_t
-        {
-            constexpr auto steps = std::make_index_sequence<unroll_factor>();
-            constexpr std::size_t total_step_size = unroll_factor * chunk_size;
-
-            std::size_t remaining = count;
-            while (remaining >= total_step_size)
-            {
-                map_unrolled<load_aligned, store_aligned>(begin..., out, func, steps);
-                ((begin += total_step_size), ...);
-                out += total_step_size;
-                remaining -= total_step_size;
-            }
-            return count - remaining;
-        }
-
-        /// Map fewer elements than a full chunk through a scratch buffer.
-        template <typename Func>
-        XSIMD_INLINE static void map_chunk_partial(
-            In const* XSIMD_RESTRICT... begin,
-            Out* XSIMD_RESTRICT out,
-            std::size_t count,
-            Func&& func)
-        {
-            assert(count <= chunk_size);
-            if (count == 0) [[unlikely]]
-            {
-                return;
             }
 
-            constexpr auto read = []<typename T>(T const* in, std::size_t cnt)
+            /// Store an array of batches.
+            template <bool aligned, typename T>
+            XSIMD_INLINE static void store_batches(batch_array<T> const& x, T* ptr)
             {
-                alignas(A::alignment()) std::array<T, chunk_size> in_buffer = {};
-                std::memcpy(in_buffer.data(), in, cnt * sizeof(T));
-                return load_batches<true>(in_buffer.data());
-            };
+                for (std::size_t i = 0; i < x.size(); ++i)
+                {
+                    store_batch<T, A, aligned>(x[i], ptr + i * xsimd::batch<T, A>::size);
+                }
+            }
 
-            alignas(A::alignment()) std::array<Out, chunk_size> out_buffer;
-            store_batches<true>(func(read(begin, count)...), out_buffer.data());
-            std::memcpy(out, out_buffer.data(), count * sizeof(Out));
-        }
-    };
+            /// Map a single unaligned chunk.
+            template <typename Func>
+            XSIMD_INLINE static void map_chunk_unaligned(
+                In const* XSIMD_RESTRICT... in,
+                Out* XSIMD_RESTRICT out,
+                Func&& func)
+            {
+                store_batches<false>(func(load_batches<false>(in)...), out);
+            }
+
+            /// Map multiple chunks with a compile-time unrolled loop.
+            template <
+                std::array<bool, n_input> load_aligned,
+                bool store_aligned,
+                typename Func,
+                std::size_t... step>
+            XSIMD_INLINE static void map_unrolled(
+                In const* XSIMD_RESTRICT... in,
+                Out* XSIMD_RESTRICT out,
+                Func&& func,
+                std::index_sequence<step...>)
+            {
+                static constexpr std::size_t factor = sizeof...(step);
+
+                constexpr auto read = []<class T, std::size_t... a>(T const* ptr, std::index_sequence<a...>)
+                {
+                    std::array<batch_array<T>, factor> x;
+                    auto load_one = [&](std::size_t s)
+                    {
+                        // Expand the parameter pack a for each alignment.
+                        ((x[s] = load_batches<load_aligned[a]>(ptr + s * chunk_size)), ...);
+                    };
+                    // Expand the step parameter pack: repeat the unrolled operation.
+                    (load_one(step), ...);
+                    return x;
+                };
+
+                constexpr auto map = [](auto* out, auto&& f, auto const&... x)
+                {
+                    auto map_one = [&](std::size_t s)
+                    {
+                        // Expand the parameter pack a for each input.
+                        store_batches<store_aligned>(f(x[s]...), out + s * chunk_size);
+                    };
+                    // Expand the step parameter pack: repeat the unrolled operation.
+                    (map_one(step), ...);
+                };
+
+                map(out, std::forward<Func>(func), read(in, std::index_sequence_for<In...> {})...);
+            }
+
+            /// Map chunks in a loop with given unrolling factor.
+            ///
+            /// Return number of elements mapped.
+            template <
+                std::array<bool, n_input> load_aligned,
+                bool store_aligned,
+                std::size_t unroll_factor,
+                typename Func>
+            XSIMD_INLINE static auto map_loop(
+                In const* XSIMD_RESTRICT... in,
+                Out* XSIMD_RESTRICT out,
+                std::size_t count,
+                Func&& func) -> std::size_t
+            {
+                constexpr auto steps = std::make_index_sequence<unroll_factor>();
+                constexpr std::size_t total_step_size = unroll_factor * chunk_size;
+
+                std::size_t remaining = count;
+                while (remaining >= total_step_size)
+                {
+                    map_unrolled<load_aligned, store_aligned>(in..., out, func, steps);
+                    ((in += total_step_size), ...);
+                    out += total_step_size;
+                    remaining -= total_step_size;
+                }
+                return count - remaining;
+            }
+
+            /// Map fewer elements than a full chunk through a scratch buffer.
+            template <typename Func>
+            XSIMD_INLINE static void map_chunk_partial(
+                In const* XSIMD_RESTRICT... begin,
+                Out* XSIMD_RESTRICT out,
+                std::size_t count,
+                Func&& func)
+            {
+                assert(count <= chunk_size);
+                if (count == 0) [[unlikely]]
+                {
+                    return;
+                }
+
+                constexpr auto read = []<typename T>(T const* in, std::size_t cnt)
+                {
+                    alignas(A::alignment()) std::array<T, chunk_size> in_buffer = {};
+                    std::memcpy(in_buffer.data(), in, cnt * sizeof(T));
+                    return load_batches<true>(in_buffer.data());
+                };
+
+                alignas(A::alignment()) std::array<Out, chunk_size> out_buffer;
+                store_batches<true>(func(read(begin, count)...), out_buffer.data());
+                std::memcpy(out, out_buffer.data(), count * sizeof(Out));
+            }
+
+            /// Given some pointers, return the number of element to process until desired alignment.
+            ///
+            /// The desired alignment is given via the compile-time parameters.
+            /// Only one can be true.
+            template <std::array<bool, n_input> align_in, bool align_out>
+            XSIMD_INLINE static auto elems_to_alignment(In const*... in, Out* out) -> std::size_t
+            {
+                if constexpr (align_out)
+                {
+                    return bytes_to_next_aligned(out, A::alignment()) / sizeof(Out);
+                }
+                else
+                {
+                    constexpr auto iter = std::find(align_in.begin(), align_in.end(), true);
+                    static_assert(iter < align_in.end());
+                    constexpr auto idx = iter - align_in.begin();
+                    auto to_align = std::array { in... }[idx];
+                    return bytes_to_next_aligned(to_align, A::alignment()) / input_elem_size[idx];
+                }
+            }
+
+            template <typename Func>
+            XSIMD_INLINE static void map_n(
+                In const* XSIMD_RESTRICT... in,
+                Out* XSIMD_RESTRICT out,
+                std::size_t count,
+                Func&& func)
+            {
+                const auto advance = [&](std::size_t n)
+                {
+                    ((in += n), ...);
+                    out += n;
+                    count -= n;
+                };
+
+                if (count == 0) [[unlikely]]
+                {
+                    return;
+                }
+
+                if constexpr (!align.start_aligned)
+                {
+                    // The span may be too short to reach the next alignment boundary.
+                    const auto to_alignment = elems_to_alignment<align_inputs, align_output>(in..., out);
+                    const auto head = std::min(to_alignment, count);
+
+                    if (opts.pure && (head != 0) && (count >= chunk_size))
+                    {
+                        // Recompute the head as a full step, the body overwrites the excess.
+                        map_chunk_unaligned(in..., out, func);
+                    }
+                    else
+                    {
+                        map_chunk_partial(in..., out, head, func);
+                    }
+                    advance(head);
+                }
+
+                // Unrolled loop processing multiple chunks at a time.
+                auto processed = map_loop<input_is_aligned, output_is_aligned, opts.unroll_factor>(
+                    in..., out, count, func);
+                advance(processed);
+
+                // Regular simd loop one chunk at a time.
+                processed = map_loop<input_is_aligned, output_is_aligned, 1>(in..., out, count, func);
+                advance(processed);
+
+                // Unlikely to be skipped, meant for users that know they allocate
+                // a multiple of the batch size, such as in a local buffer
+                if constexpr (!align.end_aligned)
+                {
+                    if (opts.pure && (count != 0) && (count >= chunk_size)) [[likely]]
+                    {
+                        // Recompute overlapping data, this time starting from the end.
+                        map_chunk_unaligned((in + count - chunk_size)..., out + count - chunk_size, func);
+                    }
+                    else
+                    {
+                        map_chunk_partial(in..., out, count, func);
+                    }
+                }
+            }
+        };
+    }
 
     /// Apply func elementwise over in, writing as many elements to out.
     ///
-    /// Func maps a std::array<batch<T, Arch>, batch_arity<T, U>> to a
-    /// std::array<batch<U, Arch>, batch_arity<U, T>>, both spanning the same element count.
-    /// When arity is one, a callback over plain batches is accepted as well.
+    /// Func maps as many input as given to the function.
+    /// If input as of different sizes, then the larger ones must be passed as an array of
+    /// as many batches as the factor to the smallest element size, so that the function
+    /// processes a fixed amount of elements.
     template <
         alignment align = alignment {},
         unary_options opts = unary_options {},
@@ -292,77 +434,13 @@ namespace xsimd::builder
         typename T, typename U, typename Func>
     XSIMD_INLINE void map_unary(std::span<T const> in, std::span<U> out, Func&& func)
     {
-        using H = map_helper<Arch, U, T>;
-
-        // Input and output may not have the same alignment so it may be impossible
-        // to get both aligned. We align preferably the output (more expensive
-        // unaligned stores) or otherwise the input.
-        constexpr bool align_output = sizeof(U) >= sizeof(T);
-        constexpr bool load_is_aligned = align.start_aligned || !align_output;
-        constexpr bool store_is_aligned = align.start_aligned || align_output;
+        using H = internal::map_helper<opts, align, Arch, U, T>;
 
         assert(in.size() == out.size());
         assert(!are_aliased(in, out));
 
         auto mapper = internal::wrap_params_as_1d_arrays(std::forward<Func>(func));
-
-        if (in.empty()) [[unlikely]]
-        {
-            return;
-        }
-
-        auto out_iter = out.data();
-        auto in_iter = in.data();
-        auto const in_end = in.data() + in.size();
-
-        if constexpr (!align.start_aligned)
-        {
-            // The span may be too short to reach the next alignment boundary.
-            const auto head = std::min(
-                align_output ? bytes_to_next_aligned(out_iter, Arch::alignment()) / sizeof(U)
-                             : bytes_to_next_aligned(in_iter, Arch::alignment()) / sizeof(T),
-                in.size());
-
-            if (opts.pure && (head != 0) && (in.size() >= H::chunk_size))
-            {
-                // Recompute the head as a full step, the body overwrites the excess.
-                H::template map_chunk_unaligned(in_iter, out_iter, mapper);
-            }
-            else
-            {
-                H::map_chunk_partial(in_iter, out_iter, head, mapper);
-            }
-            in_iter += head;
-            out_iter += head;
-        }
-
-        // Unrolled loop processing multiple chunks at a time.
-        auto processed = H::template map_loop<load_is_aligned, store_is_aligned, opts.unroll_factor>(
-            in_iter, out_iter, static_cast<std::size_t>(in_end - in_iter), mapper);
-        in_iter += processed;
-        out_iter += processed;
-
-        // Regular simd loop one chunk at a time.
-        processed = H::template map_loop<load_is_aligned, store_is_aligned, 1>(
-            in_iter, out_iter, static_cast<std::size_t>(in_end - in_iter), mapper);
-        in_iter += processed;
-        out_iter += processed;
-
-        // Unlikely to be skipped, meant for users that know they allocate
-        // a multiple of the batch size, such as in a local buffer
-        if constexpr (!align.end_aligned)
-        {
-            auto const out_end = out.data() + out.size();
-            if (opts.pure && (in_iter != in_end) && (in.size() >= H::chunk_size)) [[likely]]
-            {
-                // Recompute overlapping data, this time starting from the end.
-                H::template map_chunk_unaligned(in_end - H::chunk_size, out_end - H::chunk_size, mapper);
-            }
-            else
-            {
-                H::map_chunk_partial(in_iter, out_iter, in_end - in_iter, mapper);
-            }
-        }
+        return H::template map_n(in.data(), out.data(), in.size(), mapper);
     }
 }
 
