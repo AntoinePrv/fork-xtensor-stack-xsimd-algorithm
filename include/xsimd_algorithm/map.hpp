@@ -467,7 +467,7 @@ namespace xsimd
         assert((... && !are_aliased(std::span(in.data(), in.size()), std::span(out.data(), out.size()))));
 
         auto mapper = internal::wrap_params_as_1d_arrays(std::forward<Func>(func));
-        return H::template map_n(in.data()..., out.data(), out.size(), mapper);
+        return H::map_n(in.data()..., out.data(), out.size(), mapper);
     }
 
     template <
