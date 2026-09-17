@@ -61,6 +61,26 @@ namespace xsimd
         return (lhs_begin < rhs_begin + rhs.size_bytes()) && (rhs_begin < lhs_begin + lhs.size_bytes());
     }
 
+    /// Copy fewer than 2 * k elements without a call to memcpy.
+    ///
+    /// For count in [k, 2k), two overlapping copies of k elements cover the range; since k is a
+    /// compile-time constant, each memcpy compiles down to a few fixed-size loads and stores.
+    template <std::size_t k, typename T>
+    XSIMD_INLINE void copy_small(T* XSIMD_RESTRICT dst, T const* XSIMD_RESTRICT src, std::size_t count)
+    {
+        assert(std::has_single_bit(k));
+        assert(count < 2 * k);
+        if (count >= k)
+        {
+            std::memcpy(dst, src, k * sizeof(T));
+            std::memcpy(dst + count - k, src + count - k, k * sizeof(T));
+        }
+        else if (k > 1)
+        {
+            copy_small<k / 2>(dst, src, count);
+        }
+    }
+
     /// Load batch wrapper with an alignment as template parameter.
     template <typename T, typename A, bool aligned>
     XSIMD_INLINE xsimd::batch<T, A> load_batch(T const* ptr)
@@ -327,13 +347,13 @@ namespace xsimd
                 constexpr auto read = []<typename T>(T const* in, std::size_t cnt)
                 {
                     alignas(A::alignment()) std::array<T, chunk_size> in_buffer = {};
-                    std::memcpy(in_buffer.data(), in, cnt * sizeof(T));
+                    copy_small<chunk_size>(in_buffer.data(), in, cnt);
                     return load_batches<true>(in_buffer.data());
                 };
 
                 alignas(A::alignment()) std::array<Out, chunk_size> out_buffer;
                 store_batches<true>(func(read(begin, count)...), out_buffer.data());
-                std::memcpy(out, out_buffer.data(), count * sizeof(Out));
+                copy_small<chunk_size>(out, out_buffer.data(), count);
             }
 
             /// Given some pointers, return the number of element to process until desired alignment.
