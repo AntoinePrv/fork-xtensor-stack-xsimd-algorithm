@@ -50,6 +50,30 @@ namespace xsimd::algo
             in, out, [](auto x)
             { return exp(x); });
     }
+
+    template <
+        xsimd::alignment_options align = xsimd::alignment_options{},
+        typename Arch = xsimd::default_arch,
+        typename T>
+    void add(std::span<T const> lhs, std::span<T const> rhs, std::span<T> out)
+    {
+        constexpr map_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::map_binary<align, opts, Arch>(
+            lhs, rhs, out, [](auto x, auto y)
+            { return x + y; });
+    }
+
+    template <
+        xsimd::alignment_options align = xsimd::alignment_options{},
+        typename Arch = xsimd::default_arch,
+        typename T>
+    void multiply(std::span<T const> lhs, std::span<T const> rhs, std::span<T> out)
+    {
+        constexpr map_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::map_binary<align, opts, Arch>(
+            lhs, rhs, out, [](auto x, auto y)
+            { return x * y; });
+    }
 }
 
 #endif

@@ -461,6 +461,19 @@ namespace xsimd
     {
         return map_n<align, opts, Arch>(func, out, in);
     }
+
+    template <
+        alignment_options align = alignment_options {},
+        map_options opts = map_options {},
+        typename Arch = xsimd::default_arch,
+        typename Func,
+        typename Out,
+        typename Lhs,
+        typename Rhs>
+    XSIMD_INLINE void map_binary(Lhs&& lhs, Rhs&& rhs, Out&& out, Func&& func)
+    {
+        return map_n<align, opts, Arch>(func, out, lhs, rhs);
+    }
 }
 
 #endif
