@@ -146,11 +146,6 @@ namespace xsimd::builder
         }
     }
 
-    template <typename T, typename A, std::size_t N>
-    struct alignas(A::alignment()) alignas(T) aligned_array : std::array<T, N>
-    {
-    };
-
     template <typename A, typename Out, typename... In>
     struct map_helper
     {
@@ -237,6 +232,27 @@ namespace xsimd::builder
             map(out, std::forward<Func>(func), read(begin)...);
         }
 
+        template <bool load_aligned, bool store_aligned, std::size_t unroll_factor, typename Func>
+        XSIMD_INLINE static auto map_loop(
+            In const* XSIMD_RESTRICT... begin,
+            Out* XSIMD_RESTRICT out,
+            std::size_t count,
+            Func&& func) -> std::size_t
+        {
+            constexpr auto steps = std::make_index_sequence<unroll_factor>();
+            constexpr std::size_t total_step_size = unroll_factor * chunk_size;
+
+            std::size_t remaining = count;
+            while (remaining >= total_step_size)
+            {
+                map_unrolled<load_aligned, store_aligned>(begin..., out, func, steps);
+                ((begin += total_step_size), ...);
+                out += total_step_size;
+                remaining -= total_step_size;
+            }
+            return count - remaining;
+        }
+
         /// Map fewer elements than a full chunk through a scratch buffer.
         template <typename Func>
         XSIMD_INLINE static void map_chunk_partial(
@@ -320,21 +336,17 @@ namespace xsimd::builder
             out_iter += head;
         }
 
-        // Unrolled loop processing multiple steps at a time
-        while (static_cast<std::size_t>(in_end - in_iter) >= opts.unroll_factor * H::chunk_size)
-        {
-            H::template map_unrolled<load_is_aligned, store_is_aligned>(
-                in_iter, out_iter, mapper, std::make_index_sequence<opts.unroll_factor>());
-            in_iter += opts.unroll_factor * H::chunk_size;
-            out_iter += opts.unroll_factor * H::chunk_size;
-        }
+        // Unrolled loop processing multiple chunks at a time.
+        auto processed = H::template map_loop<load_is_aligned, store_is_aligned, opts.unroll_factor>(
+            in_iter, out_iter, static_cast<std::size_t>(in_end - in_iter), mapper);
+        in_iter += processed;
+        out_iter += processed;
 
-        while (static_cast<std::size_t>(in_end - in_iter) >= H::chunk_size)
-        {
-            H::template map_chunk<load_is_aligned, store_is_aligned>(in_iter, out_iter, mapper);
-            in_iter += H::chunk_size;
-            out_iter += H::chunk_size;
-        }
+        // Regular simd loop one chunk at a time.
+        processed = H::template map_loop<load_is_aligned, store_is_aligned, 1>(
+            in_iter, out_iter, static_cast<std::size_t>(in_end - in_iter), mapper);
+        in_iter += processed;
+        out_iter += processed;
 
         // Unlikely to be skipped, meant for users that know they allocate
         // a multiple of the batch size, such as in a local buffer
