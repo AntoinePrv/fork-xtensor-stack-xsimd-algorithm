@@ -19,7 +19,7 @@ namespace
     using xsimd::bench::bench_map_unary;
     using xsimd::bench::bench_scalar;
     using xsimd::bench::register_bench;
-    using xsimd::builder::alignment_options;
+    using xsimd::alignment_options;
 
     /// Register math benchmarks.
     ///

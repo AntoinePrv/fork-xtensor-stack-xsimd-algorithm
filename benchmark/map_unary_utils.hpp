@@ -15,13 +15,13 @@
 #include <benchmark/benchmark.h>
 
 #include "bench_utils.hpp"
-#include "xsimd_algorithm/builder.hpp"
+#include "xsimd_algorithm/map.hpp"
 #include "xsimd_test_utils/utils.hpp"
 
 namespace xsimd::bench
 {
-    using xsimd::builder::alignment_options;
-    using xsimd::builder::map_options;
+    using xsimd::alignment_options;
+    using xsimd::map_options;
 
     template <typename Op, typename Alloc, typename Apply>
     void bench_unary(benchmark::State& state, Apply apply)

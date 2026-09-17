@@ -13,7 +13,7 @@
 #include <doctest/doctest.h>
 #include <xsimd_test_utils/utils.hpp>
 
-#include "xsimd_algorithm/builder.hpp"
+#include "xsimd_algorithm/map.hpp"
 
 /// Map unary test where one input batch pairs with two output batches.
 TEST_CASE("map_unary int32 to int64")
@@ -30,7 +30,7 @@ TEST_CASE("map_unary int32 to int64")
     const auto func = [](auto const& x)
     { return xsimd::widen(x + input_type { 1 }); };
 
-    xsimd::builder::map_unary(input, output, func);
+    xsimd::map_unary(input, output, func);
 
     for (std::size_t i = 0; i < size; ++i)
     {
@@ -71,7 +71,7 @@ TEST_CASE("map_unary int64 to int32")
             xsimd::make_batch_constant<std::uint32_t, low_halves>());
     };
 
-    xsimd::builder::map_unary(xsimd::test::as_span(input), xsimd::test::as_span(output), func);
+    xsimd::map_unary(xsimd::test::as_span(input), xsimd::test::as_span(output), func);
 
     for (std::size_t i = 0; i < size; ++i)
     {

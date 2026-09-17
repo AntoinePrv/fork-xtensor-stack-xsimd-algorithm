@@ -16,15 +16,15 @@
 #include <utility>
 #include <vector>
 
-#include "xsimd_algorithm/builder.hpp"
+#include "xsimd_algorithm/map.hpp"
 #include "xsimd_algorithm/stl/transform.hpp"
 
 #include "xsimd_test_utils/utils.hpp"
 
 namespace xsimd::test
 {
-    using xsimd::builder::alignment_options;
-    using xsimd::builder::map_options;
+    using xsimd::alignment_options;
+    using xsimd::map_options;
 
     /// Derives the scalar range application from the element-wise Derived::apply.
     template <typename Derived, typename In, typename Out = In>
@@ -51,7 +51,7 @@ namespace xsimd::test
             typename Arch = xsimd::default_arch>
         static void range_apply_map_unary(std::span<input_t const> in, std::span<output_t> out)
         {
-            return xsimd::builder::map_unary<aligned, opts, Arch>(
+            return xsimd::map_unary<aligned, opts, Arch>(
                 in, out, [](auto x)
                 { return Derived::apply_batch(x); });
         }

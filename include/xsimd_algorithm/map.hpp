@@ -6,8 +6,8 @@
  * The full license is in the file LICENSE, distributed with this software. *
  ****************************************************************************/
 
-#ifndef XSIMD_ALGORITHM_BUILDER_HPP
-#define XSIMD_ALGORITHM_BUILDER_HPP
+#ifndef XSIMD_ALGORITHM_MAP_HPP
+#define XSIMD_ALGORITHM_MAP_HPP
 
 #include <algorithm>
 #include <array>
@@ -23,7 +23,7 @@
 
 #include "./macros.hpp"
 
-namespace xsimd::builder
+namespace xsimd
 {
     /// Return the pointer before the input with the given alignment or itself if aligned.
     template <typename T>

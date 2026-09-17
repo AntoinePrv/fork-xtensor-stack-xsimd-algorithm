@@ -11,42 +11,42 @@
 
 #include <xsimd/xsimd.hpp>
 
-#include "./builder.hpp"
+#include "./map.hpp"
 
 namespace xsimd::algo
 {
     template <
-        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
+        xsimd::alignment_options align = xsimd::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void sqrt(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
-        return xsimd::builder::map_unary<align, opts, Arch>(
+        constexpr map_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return sqrt(x); });
     }
 
     template <
-        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
+        xsimd::alignment_options align = xsimd::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void abs(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
-        return xsimd::builder::map_unary<align, opts, Arch>(
+        constexpr map_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return abs(x); });
     }
 
     template <
-        xsimd::builder::alignment_options align = xsimd::builder::alignment_options{},
+        xsimd::alignment_options align = xsimd::alignment_options{},
         typename Arch = xsimd::default_arch,
         typename T>
     void exp(std::span<T const> in, std::span<T> out)
     {
-        constexpr builder::map_options opts = { .unroll_factor = 4, .pure = true };
-        return xsimd::builder::map_unary<align, opts, Arch>(
+        constexpr map_options opts = { .unroll_factor = 4, .pure = true };
+        return xsimd::map_unary<align, opts, Arch>(
             in, out, [](auto x)
             { return exp(x); });
     }

@@ -48,7 +48,7 @@ endif()
 set(XSIMD_ALGORITHM_TESTS
     main.cpp
     test_arange.cpp
-    test_builder.cpp
+    test_map.cpp
     test_iterator.cpp
     test_math.cpp
     test_reduce.cpp

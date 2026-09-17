@@ -11,7 +11,7 @@
 #include <benchmark/benchmark.h>
 
 #include "map_unary_utils.hpp"
-#include "xsimd_algorithm/builder.hpp"
+#include "xsimd_algorithm/map.hpp"
 #include "xsimd_test_utils/map_unary_data.hpp"
 #include "xsimd_test_utils/utils.hpp"
 
@@ -21,8 +21,8 @@ namespace
     using xsimd::bench::bench_scalar;
     using xsimd::bench::bench_transform;
     using xsimd::bench::register_bench;
-    using xsimd::builder::alignment_options;
-    using xsimd::builder::map_options;
+    using xsimd::alignment_options;
+    using xsimd::map_options;
 
     template <typename Op>
     void register_benches()

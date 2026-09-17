@@ -14,7 +14,7 @@
 #include <span>
 #include <vector>
 
-#include <xsimd_algorithm/builder.hpp>
+#include <xsimd_algorithm/map.hpp>
 #include <xsimd_algorithm/math.hpp>
 
 #include "xsimd_test_utils/utils.hpp"
@@ -28,7 +28,7 @@ namespace xsimd::test
 
         static constexpr auto name = "sqrt";
 
-        template <xsimd::builder::alignment_options aligned = xsimd::builder::alignment_options{}>
+        template <xsimd::alignment_options aligned = xsimd::alignment_options{}>
         static void apply(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::sqrt<aligned>(in, out);
@@ -53,7 +53,7 @@ namespace xsimd::test
 
         static constexpr auto name = "abs";
 
-        template <xsimd::builder::alignment_options aligned = xsimd::builder::alignment_options{}>
+        template <xsimd::alignment_options aligned = xsimd::alignment_options{}>
         static void apply(std::span<T const> in, std::span<T> out)
         {
             xsimd::algo::abs<aligned>(in, out);
