@@ -11,6 +11,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "bench_arena.hpp"
 #include "map_binary_utils.hpp"
 #include "map_unary_utils.hpp"
 #include "xsimd_algorithm/map.hpp"
@@ -35,8 +36,8 @@ namespace
     {
         using input_t = typename Op::input_t;
         using arch = xsimd::default_arch;
-        using aligned_alloc = typename xsimd::test::aligned_vector<input_t, arch>::allocator_type;
-        using unaligned_alloc = typename xsimd::test::unaligned_vector<input_t, arch>::allocator_type;
+        using aligned_alloc = xsimd::bench::arena_allocator<input_t>;
+        using unaligned_alloc = xsimd::bench::arena_allocator<input_t, 1>;
 
         constexpr auto noalign = alignment_options {};
         constexpr auto noopts = map_options { .unroll_factor = 1, .pure = false };
@@ -92,8 +93,8 @@ namespace
     {
         using lhs_t = typename Op::lhs_t;
         using arch = xsimd::default_arch;
-        using aligned_alloc = typename xsimd::test::aligned_vector<lhs_t, arch>::allocator_type;
-        using unaligned_alloc = typename xsimd::test::unaligned_vector<lhs_t, arch>::allocator_type;
+        using aligned_alloc = xsimd::bench::arena_allocator<lhs_t>;
+        using unaligned_alloc = xsimd::bench::arena_allocator<lhs_t, 1>;
 
         constexpr auto noalign = alignment_options {};
         constexpr auto noopts = map_options { .unroll_factor = 1, .pure = false };
